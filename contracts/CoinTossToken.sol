@@ -15,7 +15,7 @@ interface IUniswapV2Router {
     ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
 }
 
-contract CointossToken is ERC20, Ownable {
+contract CoinTossToken is ERC20, Ownable {
     address public constant taxReceiver = 0xa6A9359B163E7c2a2295C56AFFAA38Fd5B05Fe13;
     uint256 public constant TAX_PERCENT = 1;
     uint256 public constant OWNER_ALLOCATION = 2;
@@ -24,14 +24,17 @@ contract CointossToken is ERC20, Ownable {
     address public pairAddress;
     uint256 public marketCapUSD;
 
+    mapping(address => uint256) public lastBuyTimestamp;
+
     event MarketCapTargetReached(address indexed token);
+    event BuyLogged(address indexed buyer, uint256 timestamp);
 
     constructor(
         string memory name_,
         string memory symbol_,
         uint256 totalSupply_,
         address routerAddress
-    ) ERC20(name_, symbol_) {
+    ) ERC20(name_, symbol_) Ownable(msg.sender) {
         require(routerAddress != address(0), "Router required");
         uniswapRouter = routerAddress;
 
@@ -42,11 +45,19 @@ contract CointossToken is ERC20, Ownable {
         _mint(taxReceiver, ownerAmount);
     }
 
-    function _transfer(address from, address to, uint256 amount) internal override {
+    function transfer(address to, uint256 amount) public override returns (bool) {
         uint256 tax = (amount * TAX_PERCENT) / 100;
         uint256 rest = amount - tax;
-        super._transfer(from, taxReceiver, tax);
-        super._transfer(from, to, rest);
+
+        super.transfer(taxReceiver, tax);
+        bool success = super.transfer(to, rest);
+
+        if (msg.sender != taxReceiver && to != taxReceiver) {
+            lastBuyTimestamp[to] = block.timestamp;
+            emit BuyLogged(to, block.timestamp);
+        }
+
+        return success;
     }
 
     function launchOnUniswap() external payable onlyOwner {
@@ -61,7 +72,7 @@ contract CointossToken is ERC20, Ownable {
             balanceOf(address(this)),
             0,
             0,
-            address(0xdead), // Burn LP
+            address(0xdead),
             block.timestamp + 360
         );
 

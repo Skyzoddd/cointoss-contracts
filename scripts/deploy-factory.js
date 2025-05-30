@@ -1,11 +1,15 @@
 const hre = require("hardhat");
 
 async function main() {
-  const routerAddress = "0x327Df1E6de05895d2ab08513aaDD9313Fe505d86"; // Uniswap router on Base Sepolia
+  const [deployer] = await hre.ethers.getSigners();
+
+  const platformWallet = deployer.address; // ou une autre adresse si tu veux
+
   const Factory = await hre.ethers.getContractFactory("TokenFactory");
-  const factory = await Factory.deploy(routerAddress);
+  const factory = await Factory.deploy(platformWallet);
+
   await factory.deployed();
-  console.log("Factory deployed to:", factory.address);
+  console.log("✅ TokenFactory deployed to:", factory.address);
 }
 
 main().catch((error) => {
